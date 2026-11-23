@@ -27,10 +27,10 @@ export const FLOW_CURVES: Record<string, THREE.Curve<THREE.Vector3>> = Object.fr
 type Emphasis = 'focus' | 'normal' | 'dim' | 'hidden';
 
 function emphasisFor(flow: Flow, step: number, status: ProposalStatus): Emphasis {
-  if (flow.conditional === 'win') return status === 'won' ? 'focus' : status === 'paid' ? 'normal' : 'hidden';
+  if (flow.conditional === 'win') return status === 'paying' ? 'focus' : status === 'paid' ? 'normal' : 'hidden';
   if (flow.conditional) {
     const fired =
-      (flow.conditional === 'approve' && ['approved', 'submitted', 'won', 'paid'].includes(status)) ||
+      (flow.conditional === 'approve' && ['approved', 'submitted', 'delivering', 'delivered', 'paying', 'paid'].includes(status)) ||
       (flow.conditional === 'reject' && status === 'rejected');
     if (fired) return 'focus';
     return step === STEP.decision || step === 0 ? 'normal' : 'dim';

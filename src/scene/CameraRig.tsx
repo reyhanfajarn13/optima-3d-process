@@ -11,18 +11,19 @@ const BOUNDS = { minX: -55, maxX: 65, minZ: -35, maxZ: 40, minY: 0, maxY: 10 };
 const FOV = 42;
 const TAN = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
 /** setengah lebar & kedalaman seluruh peta proses (unit dunia) */
-const SCENE_HALF = { x: 53, z: 20 };
+const SCENE_HALF = { x: 53, z: 31 };
 
 /** Area layar yang tertutup UI (px) — harus selaras dengan styles.css */
 export function uiInsets(width: number, height: number, panelOpen: boolean) {
   if (width >= 1024) {
     return { left: 76, right: panelOpen ? Math.min(440, width * 0.34) + 16 : 0, top: 0, bottom: 0 };
   }
-  return { left: 0, right: 0, top: 118, bottom: panelOpen ? Math.min(height * 0.48, 520) : 0 };
+  const shipping = ['delivering', 'delivered', 'paying', 'paid'].includes(useApp.getState().proposalStatus);
+  return { left: 0, right: 0, top: !panelOpen && shipping ? 360 : 118, bottom: panelOpen ? Math.min(height * 0.48, 520) : 0 };
 }
 
 function goalFor(width: number, height: number) {
-  const { activeStep, focusStation, panelOpen } = useApp.getState();
+  const { activeStep, focusStation, panelOpen, proposalStatus } = useApp.getState();
   const ins = uiInsets(width, height, panelOpen);
   const visW = Math.max(200, width - ins.left - ins.right);
   const visH = Math.max(160, height - ins.top - ins.bottom);
@@ -36,6 +37,16 @@ function goalFor(width: number, height: number) {
     target = new THREE.Vector3(p[0], 1.4, p[2]);
     const offset = focusStation === 'customer' ? [9, 20, 29] : focusStation === 'optima' ? [5, 10, 17] : focusStation === 'warehouse' ? [5, 9, 14] : [4.5, 5.5, 9];
     pos = target.clone().add(new THREE.Vector3(...offset).multiplyScalar(pullback));
+  } else if (activeStep === 0 && proposalStatus === 'paid') {
+    // Kamera memasukkan kedua aktor dan labelnya, termasuk di layar potret.
+    target = new THREE.Vector3(31, 1.5, 8);
+    const dir = new THREE.Vector3(...(width < height ? [-45,42,12] : [3,24,42])).normalize();
+    const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), dir).normalize();
+    const up = new THREE.Vector3().crossVectors(dir, right);
+    const extent = (v: THREE.Vector3) => 18 * Math.abs(v.x) + 3 * Math.abs(v.y) + 6 * Math.abs(v.z);
+    // Label DOM memiliki lebar tetap dalam pixel; beri ruang tambahan di ponsel.
+    const d = (Math.max(45, extent(right) * fullH / (visW * TAN), extent(up) * fullH / (visH * TAN)) + extent(dir)) * (width < 1024 ? 1.45 : 1);
+    pos = target.clone().add(dir.multiplyScalar(d));
   } else if (activeStep > 0) {
     const cam = STEPS[activeStep - 1].camera;
     target = new THREE.Vector3(...cam.target);
@@ -123,7 +134,7 @@ export function CameraRig() {
       controls.update();
       return;
     }
-    const k = 1 - Math.exp(-Math.min(dt, 0.05) * 3.2);
+    const k = 1 - Math.exp(-Math.min(dt, 0.1) * 3.2);
     camera.position.lerp(goal.current.pos, k);
     controls.target.lerp(goal.current.target, k);
     controls.update();

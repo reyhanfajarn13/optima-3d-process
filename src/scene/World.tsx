@@ -4,6 +4,8 @@ import { useApp } from '../store';
 import { G, mat, PALETTE } from './materials';
 import { Box, Cone, Cyl } from './assets/primitives';
 import { LogoPanel, Sign } from './assets/Signs';
+import { FuelDepot } from './assets/FuelDepot';
+import { DeliveryRoad } from './Delivery';
 
 const tint = (hex: string, amount: number) => '#' + new THREE.Color(hex).lerp(new THREE.Color('#ffffff'), amount).getHexString();
 
@@ -83,6 +85,8 @@ export function World() {
     <>
       <mesh geometry={G.plane} material={mat(PALETTE.ground)} rotation={[-Math.PI / 2, 0, 0]} scale={[1000, 1000, 1]} />
       <TemOffice />
+      <DeliveryRoad />
+      <FuelDepot />
       <Box color="#e3d0a6" position={[34,0.03,3]} scale={[5,0.06,3]} />
       {ZONES.map((z) => (
         <Zone key={z.step} step={z.step} />

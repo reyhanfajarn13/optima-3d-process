@@ -2,17 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import { STEP } from '../../data/process';
 import { TEM_LOGO, TEM_LOGO_ALT } from '../../data/brands';
 import { REGIONS } from '../../data/dummy';
-import { fmtNum, fmtPct, fmtRp, fmtRpCompact } from '../../lib/format';
+import { fmtNum, fmtPct, fmtRp } from '../../lib/format';
 import { useOffer } from '../../lib/useOffer';
 import { useApp } from '../../store';
 import { TierBadge } from './DataWidgets';
 import { RevenueReceipt } from '../Revenue';
+import { GPValue } from '../GPValue';
+import { DealActionSummary, SubmissionReasonWidget } from './DealActionWidget';
+import { reviewReadiness } from '../../lib/dealPolicy';
 
 const today = () => new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
 function ProposalDoc() {
   const { customer, volumeKL, result } = useOffer();
   const iteration = useApp((s) => s.iteration);
+  const proposal = useApp((s) => s.proposal);
   const d = new Date();
   const number = `TEM/SLS/${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${customer.id.toUpperCase()}-R${iteration}`;
   return (
@@ -46,10 +50,11 @@ function ProposalDoc() {
       <div className="proposal-doc__internal">
         <b>Lampiran internal untuk GM Sales</b>
         <span>Margin {fmtPct(result.marginPct)}</span>
-        <span>Laba kotor {fmtRpCompact(result.grossProfitMonthlyRp)}/bln</span>
+        <span className="proposal-gp">GP <GPValue amount={result.grossProfitMonthlyRp} /> / bulan</span>
         <span>Peluang menang {Math.round(result.winProbabilityPct)}%</span>
         <span>Kompetitor termurah {fmtRp(result.competitorMinRp)}</span>
         <TierBadge tier={result.risk.tier} />
+        {proposal && <DealActionSummary offer={proposal} plan={proposal.salesAction} />}
       </div>
       <footer>Dibuat otomatis oleh OPTIMA · revisi #{iteration}</footer>
     </article>
@@ -57,6 +62,9 @@ function ProposalDoc() {
 }
 
 export function ProposalWidget() {
+  const offer = useOffer();
+  const plan = useApp((s) => s.followUp);
+  const readiness = reviewReadiness(offer, plan);
   const status = useApp((s) => s.proposalStatus);
   const generate = useApp((s) => s.generateProposal);
   const send = useApp((s) => s.sendToGM);
@@ -74,12 +82,15 @@ export function ProposalWidget() {
     <section className="widget">
       {status === 'draft' && (
         <div className="empty">
-          <p>Hasil kalkulasi OPTIMA siap dijadikan proposal. Satu klik — dokumen tersusun otomatis.</p>
+          <p>Semua Kelompok Result dapat diajukan. Isi alasan melanjutkan penawaran untuk ditinjau GM.</p>
+          <DealActionSummary offer={offer} plan={plan} showSubmissionDetails={false} />
+          <SubmissionReasonWidget plan={plan} />
+          {!readiness.ready && <ul className="proposal-readiness">{readiness.reasons.map((text) => <li key={text}>{text}</li>)}</ul>}
           <div className="actions">
             <button type="button" className="btn btn--ghost" onClick={() => useApp.getState().openOptima('calculator')}>
-              Ubah angka
+              Tinjau rekomendasi di kalkulator
             </button>
-            <button type="button" className="btn" onClick={generate}>
+            <button type="button" className="btn" disabled={!readiness.ready} onClick={generate}>
               Generate proposal
             </button>
           </div>
@@ -118,9 +129,12 @@ export function ApprovalWidget() {
   const win = useApp((s) => s.winTender);
   const resetFlow = useApp((s) => s.resetFlow);
   const iteration = useApp((s) => s.iteration);
+  const proposal = useApp((s) => s.proposal);
+  const gmReviewed = useApp((s) => s.gmReviewed);
+  const setGMReviewed = useApp((s) => s.setGMReviewed);
   const { customer, result } = useOffer();
-  const hasApproval = ['approved', 'submitted', 'won', 'paid'].includes(status);
-  const hasTender = ['submitted', 'won', 'paid'].includes(status);
+  const hasApproval = ['approved', 'submitted', 'delivering', 'delivered', 'paying', 'paid'].includes(status);
+  const hasTender = ['submitted', 'delivering', 'delivered', 'paying', 'paid'].includes(status);
   const suggested = result.marginPct < 3 ? REASONS[0] : result.offerRp > result.competitorMinRp ? REASONS[1] : result.risk.tier === 'C' ? REASONS[3] : REASONS[0];
   const [reason, setReason] = useState(suggested);
   useEffect(() => setReason(suggested), [suggested]);
@@ -146,13 +160,16 @@ export function ApprovalWidget() {
 
       {status === 'sent' && (
         <>
+          {proposal && <DealActionSummary offer={proposal} plan={proposal.salesAction} />}
           <div className="summary">
             <div><span>Customer</span><b>{customer.name}</b></div>
             <div><span>Harga</span><b>{fmtRp(result.offerRp)}/L</b></div>
             <div><span>Margin</span><b>{fmtPct(result.marginPct)}</b></div>
+            <div><span>GP proposal</span><b><GPValue amount={result.grossProfitMonthlyRp} /></b></div>
             <div><span>Peluang menang</span><b>{Math.round(result.winProbabilityPct)}%</b></div>
           </div>
           <p className="note">Simulasikan keputusan GM Sales (revisi #{iteration}):</p>
+          <label className="action-check gm-review"><input type="checkbox" checked={gmReviewed} onChange={(e) => setGMReviewed(e.target.checked)} />Saya meninjau Kelompok Result, risiko customer, syarat, dan alasan melanjutkan penawaran dari Sales</label>
           <label className="field">
             <span>Alasan bila ditolak</span>
             <select value={reason} onChange={(e) => setReason(e.target.value)}>
@@ -165,7 +182,7 @@ export function ApprovalWidget() {
             <button type="button" className="btn btn--bad" onClick={() => decide(false, reason)}>
               ✕ Tolak
             </button>
-            <button type="button" className="btn btn--good" onClick={() => decide(true)}>
+            <button type="button" className="btn btn--good" disabled={!gmReviewed} onClick={() => decide(true)}>
               ✓ Approve
             </button>
           </div>
@@ -186,7 +203,7 @@ export function ApprovalWidget() {
       {status === 'submitted' && (
         <div className="callout callout--good" role="status">
           <p>
-            <b>Proposal sudah diajukan ke tender.</b> Menunggu hasil tender dari {customer.name}. Simulasikan customer menyetujui penawaran untuk melihat pembayaran Revenue ke Data Transaksi TEM.
+            <b>Proposal sudah diajukan ke tender.</b> Setelah {customer.name} setuju, HSD dikirim dari tangki TEM. Sesudah HSD diterima dan customer membayar, Gross Profit Riil mengikuti GP proposal yang sama.
           </p>
           <div className="actions">
             <button type="button" className="btn btn--ghost" onClick={resetFlow}>Mulai penawaran baru</button>
@@ -195,10 +212,10 @@ export function ApprovalWidget() {
         </div>
       )}
 
-      {(status === 'won' || status === 'paid') && <>
+      {(['delivering', 'delivered', 'paying', 'paid'].includes(status)) && <>
         <RevenueReceipt />
         <div className="actions">
-          <button type="button" className="btn btn--ghost" onClick={() => useApp.getState().setStep(0)}>Lihat alur Revenue</button>
+          <button type="button" className="btn btn--ghost" onClick={() => useApp.getState().setStep(0)}>Lihat alur Gross Profit Riil</button>
           {status === 'paid' && <button type="button" className="btn" onClick={resetFlow}>Mulai penawaran baru</button>}
         </div>
       </>}

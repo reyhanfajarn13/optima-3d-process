@@ -1,8 +1,10 @@
 import { CUSTOMERS, REGIONS, TEM_CONFIG } from '../../data/dummy';
-import { fmtDate, fmtNum, fmtPct, fmtRp, fmtRpCompact } from '../../lib/format';
+import { fmtDate, fmtNum, fmtPct, fmtRp } from '../../lib/format';
 import { useOffer } from '../../lib/useOffer';
 import { isLocked, useApp } from '../../store';
 import { TierBadge } from './DataWidgets';
+import { GPValue } from '../GPValue';
+import { DealActionWidget } from './DealActionWidget';
 
 export function CustomerSelect() {
   const customerId = useApp((s) => s.customerId);
@@ -47,7 +49,8 @@ function PriceScale({ floor, min, avg, offer }: { floor: number; min: number; av
 }
 
 export function OptimaWidget() {
-  const { customer, volumeKL, termDays, adjustmentRp, result } = useOffer();
+  const offer = useOffer();
+  const { customer, volumeKL, termDays, adjustmentRp, result } = offer;
   const setCalc = useApp((s) => s.setCalc);
   const setTab = useApp((s) => s.setOptimaTab);
   const iteration = useApp((s) => s.iteration);
@@ -103,13 +106,15 @@ export function OptimaWidget() {
           <small>per liter · rekomendasi sistem {fmtRp(result.recommendedRp)}</small>
         </div>
         <div className="reco__grid">
-          <div><span>Margin</span><b>{fmtPct(result.marginPct)}</b></div>
-          <div><span>Laba kotor/bln</span><b>{fmtRpCompact(result.grossProfitMonthlyRp)}</b></div>
+          <div><span>Margin GP TEM</span><b>{fmtPct(result.marginPct)}</b></div>
+          <div><span>GP / laba kotor per bulan</span><b><GPValue amount={result.grossProfitMonthlyRp} /></b></div>
           <div><span>Peluang menang</span><b>{Math.round(result.winProbabilityPct)}%</b></div>
           <div><span>Risiko customer</span><TierBadge tier={result.risk.tier} /></div>
         </div>
         <PriceScale floor={result.floorRp} min={result.competitorMinRp} avg={result.competitorAvgRp} offer={result.offerRp} />
       </div>
+
+      <DealActionWidget />
 
       <details className="breakdown">
         <summary>Rincian perhitungan</summary>

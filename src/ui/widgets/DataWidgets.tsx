@@ -246,6 +246,7 @@ export function WarehouseWidget() {
               <tr><td>Biaya dasar HSD</td><td className="num">{fmtRp(TEM_CONFIG.baseCostRp)}/L</td></tr>
               <tr><td>Biaya dana</td><td className="num">{fmtPct(TEM_CONFIG.financingRatePa * 100)} p.a.</td></tr>
               <tr><td>Margin minimum</td><td className="num">{fmtPct(TEM_CONFIG.minMarginPct)}</td></tr>
+              <tr><td>Kelompok profit (margin GP)</td><td className="num">Low &lt;{TEM_CONFIG.profitMarginThresholds.medium}% · Medium {TEM_CONFIG.profitMarginThresholds.medium}–&lt;{TEM_CONFIG.profitMarginThresholds.high}% · High ≥{TEM_CONFIG.profitMarginThresholds.high}%</td></tr>
               <tr><td>Premi risiko A / B / C</td><td className="num">{TEM_CONFIG.riskPremiumPct.A}% / {TEM_CONFIG.riskPremiumPct.B}% / {TEM_CONFIG.riskPremiumPct.C}%</td></tr>
               <tr><td>Termin maks. A / B / C</td><td className="num">{TEM_CONFIG.maxTermDays.A} / {TEM_CONFIG.maxTermDays.B} / {TEM_CONFIG.maxTermDays.C} hari</td></tr>
               <tr><td>Diskon volume ≥ {fmtNum(TEM_CONFIG.volumeDiscountThresholdKL)} KL</td><td className="num">{fmtPct(TEM_CONFIG.volumeDiscountPct)}</td></tr>

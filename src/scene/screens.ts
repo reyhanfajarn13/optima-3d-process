@@ -212,7 +212,7 @@ function draw(kind: ScreenKind, ctx: CanvasRenderingContext2D) {
     case 'gm': {
       header(ctx, 'Inbox · GM Sales', COLORS.gm);
       [
-        ['Proposal HSD – PT Bara Mahakam', 'Sales TEM', true],
+        ['Proposal HSD – ' + CUSTOMERS[0].name, 'Sales TEM', true],
         ['Laporan mingguan', 'Tim FAT', false],
         ['Update harga kompetitor', 'Marketing', false],
         ['Review risiko Q4', 'Tim Risk', false],

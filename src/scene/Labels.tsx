@@ -26,8 +26,10 @@ export const STATUS_TEXT: Record<ProposalStatus, string> = {
   approved: 'Disetujui',
   rejected: 'Ditolak · revisi',
   submitted: 'Diajukan ke tender',
-  won: 'WIN · Customer setuju',
-  paid: 'WIN · Revenue diterima',
+  delivering: 'WIN · HSD dikirim',
+  delivered: 'HSD diterima customer',
+  paying: 'Customer membayar',
+  paid: 'WIN · Gross Profit Riil',
 };
 
 type LabelPortal = RefObject<HTMLDivElement>;
@@ -39,13 +41,16 @@ function StationLabel({ id, portal }: { id: StationId; portal: LabelPortal }) {
   const focused = useApp((s) => s.focusStation === id);
   const status = useApp((s) => s.proposalStatus);
   const inStep = step === st.step;
+  const won = ['delivering', 'delivered', 'paying', 'paid'].includes(status);
+  const happy = status === 'paid' && (id === 'sales' || id === 'customer');
   const dim = step !== 0 && !inStep;
-  const p = st.position;
+  const p = happy && id === 'customer' ? [st.position[0] + 5, 0, st.position[2] + 12] : st.position;
+  const labelY = happy ? id === 'customer' ? 4.8 : 4.2 : LABEL_HEIGHT[id];
   return (
-    <Html portal={portal} position={[p[0] + (step === 0 && id.startsWith('src-') ? -5 : 0), LABEL_HEIGHT[id], p[2]]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
+    <Html portal={portal} position={[p[0] + (step === 0 && id.startsWith('src-') ? -5 : 0), labelY, p[2]]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
       <button
         type="button"
-        className={`tag tag--${id}${step === 0 ? ' tag--overview' : ''}${hovered || focused ? ' tag--hot' : ''}${dim ? ' tag--dim' : ''}${inStep && step !== 0 ? ' tag--open' : ''}`}
+        className={`tag tag--${id}${happy ? ' tag--happy' : ''}${step === 0 ? ' tag--overview' : ''}${hovered || focused ? ' tag--hot' : ''}${dim ? ' tag--dim' : ''}${inStep && step !== 0 ? ' tag--open' : ''}`}
         style={{ ['--c' as string]: st.color }}
         onClick={() => useApp.getState().setStep(st.step, id)}
         onPointerEnter={() => useApp.getState().setHovered(id)}
@@ -55,9 +60,10 @@ function StationLabel({ id, portal }: { id: StationId; portal: LabelPortal }) {
         <span className="tag__text">
           <strong>{st.label}</strong>
           {st.sub && <small>{st.sub}</small>}
-          {id === 'gm' && (step !== 0 || status !== 'draft') && <em className={`tag__status tag__status--${status}`}>{status === 'won' || status === 'paid' ? 'Disetujui' : STATUS_TEXT[status]}</em>}
-          {id === 'customer' && (status === 'won' || status === 'paid') && <em className="tag__status tag__status--won">WIN · Customer setuju</em>}
-          {id === 'src-internal' && status === 'paid' && <em className="tag__status tag__status--paid">Revenue diterima</em>}
+          {id === 'gm' && (step !== 0 || status !== 'draft') && <em className={`tag__status tag__status--${status}`}>{won ? 'Disetujui' : STATUS_TEXT[status]}</em>}
+          {id === 'customer' && won && !happy && <em className="tag__status tag__status--won">{status === 'delivered' || status === 'paying' ? 'HSD diterima' : 'WIN · Customer setuju'}</em>}
+          {happy && <em className="tag__status tag__status--paid happy-label"><i className="happy-face" aria-hidden />{id === 'sales' ? 'Sales happy' : 'Customer happy'}</em>}
+          {id === 'src-internal' && status === 'paid' && <em className="tag__status tag__status--paid">Gross Profit Riil tercatat</em>}
         </span>
       </button>
     </Html>

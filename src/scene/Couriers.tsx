@@ -30,6 +30,7 @@ function CourierFlight({ courier, portal }: { courier: Courier; portal: RefObjec
   const curve = FLOW_CURVES[route.flow];
   const tmp = useMemo(() => new THREE.Vector3(), []);
   const payment = useApp((s) => s.revenue);
+  const proposal = useApp((s) => s.proposal);
   const isRevenue = courier.route === 'revenue';
 
   useFrame((_, dt) => {
@@ -63,9 +64,14 @@ function CourierFlight({ courier, portal }: { courier: Courier; portal: RefObjec
       {isRevenue ? <>
         <Billboard><RevenuePacket /></Billboard>
         <Html portal={portal} center position={[0, 1.6, 0]} zIndexRange={[25, 21]} style={{pointerEvents: 'none'}}>
-          <span className="revenue-flight-label">Revenue · {payment && fmtRpCompact(payment.amountRp)}</span>
+          <span className="revenue-flight-label" data-gp={payment?.grossProfitRp}>Gross Profit Riil<small className="real-gp-amount">{payment && fmtRpCompact(payment.grossProfitRp)}</small></span>
         </Html>
-      </> : <Envelope color={route.color} />}
+      </> : <>
+        <Envelope color={route.color} />
+        {proposal && <Html portal={portal} center position={[0,1.6,0]} zIndexRange={[25,21]} style={{pointerEvents:'none'}}>
+          <span className="proposal-flight-label" data-gp={proposal.grossProfitRp}>Proposal · GP {fmtRpCompact(proposal.grossProfitRp)}</span>
+        </Html>}
+      </>}
       <mesh geometry={G.sphere} material={glowMat(route.color)} position={[0, -0.12, 0]} scale={[0.25, 0.25, 0.25]} />
     </group>
   );

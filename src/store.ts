@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import { COAL_PRICES, COMPETITOR_QUOTES, CUSTOMERS } from './data/dummy';
+import { CUSTOMERS } from './data/dummy';
 import { STEP, STEPS, type OptimaTab, type StationId } from './data/process';
-import { computeOffer } from './lib/pricing';
 import { fmtRp } from './lib/format';
-import { REVENUE_CAMERA_DELAY_MS, type RevenuePayment } from './lib/revenue';
+import { DELIVERY_DURATION_MS, LOADING_DURATION_MS, REVENUE_CAMERA_DELAY_MS, REVENUE_DURATION_MS, UNLOADING_DURATION_MS, type FuelDelivery, type RevenuePayment } from './lib/revenue';
+import { calculateSalesOffer, snapshotProposal, type ProposalSnapshot } from './lib/offer';
+import { emptyFollowUp, reviewReadiness, type FollowUpPlan } from './lib/dealPolicy';
 
-export type ProposalStatus = 'draft' | 'generated' | 'sent' | 'approved' | 'rejected' | 'submitted' | 'won' | 'paid';
+export type ProposalStatus = 'draft' | 'generated' | 'sent' | 'approved' | 'rejected' | 'submitted' | 'delivering' | 'delivered' | 'paying' | 'paid';
 export type CourierRoute = 'toGM' | 'toCustomer' | 'toSales' | 'revenue';
 
 export interface Courier {
@@ -36,6 +37,11 @@ interface AppState {
   adjustmentRp: number;
 
   proposalStatus: ProposalStatus;
+  proposal: ProposalSnapshot | null;
+  followUp: FollowUpPlan;
+  gmReviewed: boolean;
+  delivery: FuelDelivery | null;
+  celebrationStartedAt: number | null;
   iteration: number;
   gmNote: string | null;
   couriers: Courier[];
@@ -53,20 +59,27 @@ interface AppState {
   setCustomer: (id: string) => void;
   setCalc: (patch: Partial<Pick<AppState, 'volumeKL' | 'termDays' | 'adjustmentRp'>>) => void;
   generateProposal: () => void;
+  setFollowUp: (patch: Partial<FollowUpPlan>) => void;
+  setGMReviewed: (reviewed: boolean) => void;
   sendToGM: () => void;
   decide: (approve: boolean, note?: string) => void;
   submitToCustomer: () => void;
   winTender: () => void;
+  finishDelivery: (id: number) => void;
+  startRevenue: (deliveryId: number) => void;
   finishCourier: (id: number) => void;
   resetFlow: () => void;
 }
 
 /** Input kalkulator dikunci selama proposal diproses GM / tender */
-export const isLocked = (s: ProposalStatus) => s === 'sent' || s === 'approved' || s === 'submitted' || s === 'won' || s === 'paid';
+export const isLocked = (s: ProposalStatus) => !['draft', 'generated', 'rejected'].includes(s);
 
 /** Mengubah input setelah ditolak GM otomatis membuka revisi baru */
 const reopen = (s: { proposalStatus: ProposalStatus; iteration: number }) => ({
   proposalStatus: 'draft' as const,
+  proposal: null,
+  followUp: emptyFollowUp(),
+  gmReviewed: false,
   iteration: s.proposalStatus === 'rejected' ? s.iteration + 1 : s.iteration,
 });
 
@@ -93,6 +106,11 @@ export const useApp = create<AppState>((set, get) => ({
   adjustmentRp: 0,
 
   proposalStatus: 'draft',
+  proposal: null,
+  followUp: emptyFollowUp(),
+  gmReviewed: false,
+  delivery: null,
+  celebrationStartedAt: null,
   iteration: 1,
   gmNote: null,
   couriers: [],
@@ -121,13 +139,25 @@ export const useApp = create<AppState>((set, get) => ({
 
   generateProposal: () => {
     if (get().proposalStatus !== 'draft') return;
-    set((s) => ({ proposalStatus: 'generated', log: [entry(`Proposal revisi #${s.iteration} dibuat otomatis dari OPTIMA`), ...s.log] }));
+    const s = get();
+    if (!reviewReadiness(calculateSalesOffer(s), s.followUp).ready) return;
+    const proposal = snapshotProposal(s, seq++, s.iteration, s.followUp);
+    set({ proposalStatus: 'generated', proposal, gmReviewed: false, log: [entry(`Proposal revisi #${s.iteration} · ${proposal.assessment.title} · GP ${fmtRp(proposal.grossProfitRp)}/bulan · alasan melanjutkan penawaran dari Sales terlampir untuk GM`), ...s.log] });
+  },
+
+  setFollowUp: (patch) => {
+    if (get().proposalStatus !== 'draft') return;
+    set((s) => ({ followUp: { ...s.followUp, ...patch }, tour: false }));
+  },
+  setGMReviewed: (reviewed) => {
+    if (get().proposalStatus === 'sent') set({ gmReviewed: reviewed, tour: false });
   },
 
   sendToGM: () => {
     if (get().proposalStatus !== 'generated') return;
     set((s) => ({
       proposalStatus: 'sent',
+      gmReviewed: false,
       couriers: [...s.couriers, { id: seq++, route: 'toGM' }],
       log: [entry('Proposal dikirim via email ke GM Sales'), ...s.log],
     }));
@@ -135,6 +165,7 @@ export const useApp = create<AppState>((set, get) => ({
 
   decide: (approve, note) => {
     if (get().proposalStatus !== 'sent') return;
+    if (approve && !get().gmReviewed) return;
     if (approve) {
       set((s) => ({
         proposalStatus: 'approved',
@@ -162,26 +193,46 @@ export const useApp = create<AppState>((set, get) => ({
 
   winTender: () => {
     const s = get();
-    if (s.proposalStatus !== 'submitted') return;
-    const customer = CUSTOMERS.find((c) => c.id === s.customerId)!;
-    const offer = computeOffer({ customer, volumeKL: s.volumeKL, termDays: s.termDays, adjustmentRp: s.adjustmentRp, ncPriceUsd: COAL_PRICES[COAL_PRICES.length - 1].usdPerTon, competitors: COMPETITOR_QUOTES });
+    if (s.proposalStatus !== 'submitted' || !s.proposal) return;
+    const proposal = s.proposal;
+    const id = seq++;
+    const startedAt = Date.now() + REVENUE_CAMERA_DELAY_MS;
+    const departedAt = startedAt + LOADING_DURATION_MS;
+    set({
+      proposalStatus: 'delivering',
+      delivery: { id, proposalId: proposal.id, customerName: proposal.customer.name, volumeKL: proposal.volumeKL, startedAt, departedAt, arrivesAt: departedAt + DELIVERY_DURATION_MS, deliveredAt: null },
+      revenue: null, couriers: [], celebrationStartedAt: null,
+      log: [entry(`WIN — ${proposal.customer.name} setuju. Muat HSD dari tangki TEM, lalu kirim dengan truk · GP tetap ${fmtRp(proposal.grossProfitRp)}`, 'good'), ...s.log],
+      // Perlihatkan tangki di luar kantor dan seluruh jalan menuju tambang.
+      activeStep: 0, focusStation: null, panelOpen: false, tour: false, cameraNonce: s.cameraNonce + 1,
+    });
+  },
+
+  finishDelivery: (id) => {
+    const s = get();
+    if (s.proposalStatus !== 'delivering' || s.delivery?.id !== id || Date.now() < s.delivery.arrivesAt) return;
+    set({ proposalStatus: 'delivered', delivery: { ...s.delivery, deliveredAt: Date.now() }, log: [entry('Truk tiba di tambang customer. HSD diterima; bongkar muatan sebelum pembayaran.', 'good'), ...s.log] });
+  },
+
+  startRevenue: (deliveryId) => {
+    const s = get();
+    if (s.proposalStatus !== 'delivered' || s.delivery?.id !== deliveryId || s.delivery.deliveredAt === null || !s.proposal || Date.now() < s.delivery.deliveredAt + UNLOADING_DURATION_MS) return;
     const id = seq++;
     set({
-      proposalStatus: 'won',
-      revenue: { id, customerName: customer.name, amountRp: offer.offerRp * s.volumeKL * 1000, startedAt: Date.now() + REVENUE_CAMERA_DELAY_MS },
-      couriers: [...s.couriers, { id, route: 'revenue' }],
-      log: [entry(`WIN — ${customer.name} menyetujui penawaran; simulasi pembayaran Revenue dimulai`, 'good'), ...s.log],
-      // Tampilkan seluruh jalur customer → ERP sebelum uang mulai bergerak.
-      activeStep: 0, focusStation: null, panelOpen: false, tour: false, cameraNonce: s.cameraNonce + 1,
+      proposalStatus: 'paying',
+      revenue: { id, proposalId: s.proposal.id, customerName: s.proposal.customer.name, amountRp: s.proposal.revenueRp, grossProfitRp: s.proposal.grossProfitRp, startedAt: Date.now() },
+      couriers: [{ id, route: 'revenue' }],
+      log: [entry(`HSD selesai dibongkar. Pembayaran customer merealisasikan Gross Profit Riil ${fmtRp(s.proposal.grossProfitRp)}, sama dengan GP penawaran.`, 'good'), ...s.log],
     });
   },
 
   finishCourier: (id) => set((s) => {
     const couriers = s.couriers.filter((c) => c.id !== id);
-    if (s.proposalStatus !== 'won' || s.revenue?.id !== id) return { couriers };
+    if (s.proposalStatus !== 'paying' || s.revenue?.id !== id) return { couriers };
+    if (Date.now() < s.revenue.startedAt + REVENUE_DURATION_MS) return {};
     return {
-      couriers, proposalStatus: 'paid',
-      log: [entry(`Revenue ${fmtRp(s.revenue.amountRp)} dari ${s.revenue.customerName} diterima di Data Transaksi TEM · Oracle NetSuite (simulasi 1 bulan)`, 'good'), ...s.log],
+      couriers, proposalStatus: 'paid', celebrationStartedAt: Date.now(), cameraNonce: s.cameraNonce + 1,
+      log: [entry(`Gross Profit Riil ${fmtRp(s.revenue.grossProfitRp)} terealisasi di Data Transaksi TEM · Oracle NetSuite, sama dengan GP proposal. Pembayaran customer ${fmtRp(s.revenue.amountRp)} · Customer happy & Sales happy`, 'good'), ...s.log],
     };
   }),
 
@@ -192,6 +243,11 @@ export const useApp = create<AppState>((set, get) => ({
       iteration: s.proposalStatus === 'rejected' ? s.iteration + 1 : 1,
       gmNote: s.proposalStatus === 'rejected' ? s.gmNote : null,
       revenue: null,
+      proposal: null,
+      followUp: emptyFollowUp(),
+      gmReviewed: false,
+      delivery: null,
+      celebrationStartedAt: null,
       couriers: [],
       activeStep: STEP.optima,
       optimaTab: 'calculator',

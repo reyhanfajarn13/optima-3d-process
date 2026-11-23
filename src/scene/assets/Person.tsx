@@ -1,12 +1,13 @@
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useRef } from 'react';
 import type * as THREE from 'three';
 import type { Vec3 } from '../../data/process';
 import { useApp } from '../../store';
 import { G, mat, PALETTE } from '../materials';
 import { Ball, Box, Shadow } from './primitives';
+import { CELEBRATION_DURATION_MS } from '../../lib/revenue';
 
-export type Pose = 'type' | 'talk' | 'idle' | 'think';
+export type Pose = 'type' | 'talk' | 'idle' | 'think' | 'celebrate';
 
 interface PersonProps {
   position?: Vec3;
@@ -18,17 +19,33 @@ interface PersonProps {
   tie?: string;
   hardhat?: boolean;
   phase?: number;
+  celebrationAt?: number | null;
 }
 
 /** Karakter low-poly (± 1,9 m) dengan animasi idle / mengetik / bicara */
-export function Person({ position = [0, 0, 0], rotation = 0, shirt, pose = 'idle', skin = PALETTE.skin, hair = PALETTE.hair, tie, hardhat, phase = 0 }: PersonProps) {
+export function Person({ position = [0, 0, 0], rotation = 0, shirt, pose = 'idle', skin = PALETTE.skin, hair = PALETTE.hair, tie, hardhat, phase = 0, celebrationAt = null }: PersonProps) {
   const body = useRef<THREE.Group>(null);
   const head = useRef<THREE.Group>(null);
   const armL = useRef<THREE.Group>(null);
   const armR = useRef<THREE.Group>(null);
+  const invalidate = useThree((s) => s.invalidate);
 
   useFrame(({ clock }) => {
-    if (!useApp.getState().animate || !body.current) return;
+    if (!body.current) return;
+    if (pose === 'celebrate' && armL.current && armR.current) {
+      const elapsed = celebrationAt === null ? CELEBRATION_DURATION_MS : Date.now() - celebrationAt;
+      const dancing = elapsed < CELEBRATION_DURATION_MS;
+      const t = elapsed / 1000 + phase;
+      body.current.position.y = dancing ? Math.abs(Math.sin(t * 5)) * 0.4 : 0;
+      body.current.rotation.z = dancing ? Math.sin(t * 4) * 0.1 : 0;
+      armL.current.rotation.set(-2.7 + (dancing ? Math.sin(t * 7) * 0.3 : 0), 0, -0.45);
+      armR.current.rotation.set(-2.7 - (dancing ? Math.sin(t * 7) * 0.3 : 0), 0, 0.45);
+      if (head.current) head.current.rotation.set(0, dancing ? Math.sin(t * 3) * 0.25 : 0, 0);
+      if (dancing) invalidate();
+      return;
+    }
+    body.current.rotation.z = 0;
+    if (!useApp.getState().animate) { body.current.position.y = 0; return; }
     const t = clock.elapsedTime + phase;
     body.current.position.y = Math.sin(t * 2) * 0.015;
     if (head.current) {
@@ -36,6 +53,8 @@ export function Person({ position = [0, 0, 0], rotation = 0, shirt, pose = 'idle
       head.current.rotation.x = pose === 'think' ? 0.15 + Math.sin(t) * 0.05 : Math.sin(t * 0.9) * 0.04;
     }
     if (armL.current && armR.current) {
+      armL.current.rotation.z = 0;
+      armR.current.rotation.z = 0;
       if (pose === 'type') {
         armL.current.rotation.x = -1.15 + Math.sin(t * 14) * 0.06;
         armR.current.rotation.x = -1.15 + Math.cos(t * 13) * 0.06;
@@ -54,10 +73,10 @@ export function Person({ position = [0, 0, 0], rotation = 0, shirt, pose = 'idle
     }
   });
 
-  const initialArm = pose === 'type' ? -1.15 : pose === 'think' ? -2.2 : 0;
+  const initialArm = pose === 'celebrate' ? -2.7 : pose === 'type' ? -1.15 : pose === 'think' ? -2.2 : 0;
 
   return (
-    <group position={position} rotation={[0, rotation, 0]}>
+    <group position={position} rotation={[0, rotation, 0]} name={pose === 'celebrate' ? 'Happy celebrating person' : 'Person'}>
       <Shadow size={[1.1, 1.1]} />
       <group ref={body}>
         {/* kaki */}
@@ -83,6 +102,7 @@ export function Person({ position = [0, 0, 0], rotation = 0, shirt, pose = 'idle
           <Ball color={skin} scale={[0.42, 0.46, 0.42]} />
           <Box color={PALETTE.darker} position={[-0.08, 0.03, 0.2]} scale={[0.045, 0.06, 0.02]} />
           <Box color={PALETTE.darker} position={[0.08, 0.03, 0.2]} scale={[0.045, 0.06, 0.02]} />
+          {pose === 'celebrate' && <mesh material={mat('#6c3524')} position={[0,-0.05,0.21]} rotation={[0,0,Math.PI]}><torusGeometry args={[0.1,0.015,5,14,Math.PI]} /></mesh>}
           {hardhat ? (
             <>
               <mesh geometry={G.sphere} material={mat('#f5c518')} position={[0, 0.1, 0]} scale={[0.46, 0.36, 0.46]} />

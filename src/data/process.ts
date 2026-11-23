@@ -42,21 +42,21 @@ export const STEPS: ProcessStep[] = [
   {
     id: STEP.optima, short: 'OPTIMA', who: 'Digunakan oleh Sales',
     title: 'OPTIMA', actors: 'Sales TEM · Pengguna OPTIMA',
-    plain: 'Sales menggunakan OPTIMA untuk menghitung penawaran, membaca Dashboard Analytics, dan membuat proposal dalam satu aplikasi. Data berasal dari PostgreSQL Data Warehouse. Sales menerima hasil harga dan dokumen proposal, lalu mengirimkannya ke GM Sales untuk persetujuan.',
+    plain: 'Sales menggunakan OPTIMA untuk menghitung harga dan GP TEM, lalu melihat Kelompok Result dengan risiko customer dari Credit Risk. Semua kategori dapat diajukan sebagai proposal. Sales cukup menuliskan alasan melanjutkan penawaran untuk ditinjau GM. Recommended Action tetap tersedia sebagai informasi. Dashboard Analytics memakai sumber data PostgreSQL yang sama.',
     inputs: ['Data & parameter dari PostgreSQL', 'Input Sales: customer, volume, termin'],
-    outputs: ['Rekomendasi harga untuk Sales', 'Dashboard Analytics', 'Proposal untuk review GM'],
+    outputs: ['Harga & margin GP TEM', 'Kelompok Result + Risiko customer', 'Recommended Action & alasan melanjutkan penawaran'],
     color: COLORS.optima, camera: { position: [12, 24, 39], target: [7, 1, 1] },
   },
   {
-    id: STEP.decision, short: 'Keputusan GM', who: 'Tender · WIN · Revenue',
+    id: STEP.decision, short: 'Keputusan GM', who: 'WIN · Pengiriman · GP Riil',
     title: 'Keputusan GM Sales', actors: 'GM Sales · Sales TEM · Customer Tambang',
-    plain: 'GM Sales memeriksa proposal dari Sales. Jika disetujui, Sales mengajukan tender ke customer tambang batu bara. Jika customer setuju (WIN), pembayaran Revenue kembali ke Data Transaksi TEM dalam Oracle NetSuite. Jika GM menolak, Sales merevisi penawaran melalui OPTIMA.',
-    inputs: ['Proposal OPTIMA dari Sales'], outputs: ['Approve → tender customer', 'WIN → Revenue ke ERP', 'Tolak → revisi di OPTIMA'],
+    plain: 'GM meninjau profit TEM, risiko customer, Recommended Action, dan alasan melanjutkan penawaran dari Sales sebelum approve atau tolak. Setelah WIN, truk mengirim HSD dari tangki TEM. Ketika HSD diterima dan customer membayar, Gross Profit Riil tercatat di Oracle NetSuite dengan GP yang sama seperti proposal.',
+    inputs: ['Proposal, Result & alasan Sales'], outputs: ['WIN → Pengiriman HSD → Gross Profit Riil', 'GP proposal = Gross Profit Riil', 'Tolak → revisi di OPTIMA'],
     color: COLORS.gm, camera: { position: [40, 33, 52], target: [37, 1, 2] },
   },
 ];
 
-export const OVERVIEW_CAMERA = { position: [2, 72, 80] as Vec3, target: [2, 0, 1] as Vec3 };
+export const OVERVIEW_CAMERA = { position: [2, 72, 85] as Vec3, target: [2, 0, 6] as Vec3 };
 
 export type StationId = 'src-site' | 'src-nc' | 'src-internal' | 'src-comp' | 'risk' | 'fat' | 'marketing' | 'warehouse' | 'optima' | 'sales' | 'gm' | 'customer';
 
@@ -110,7 +110,7 @@ export const FLOWS: Flow[] = [
   { id: 'sales-gm', from: 'sales', to: 'gm', color: COLORS.sales, step: 3, label: 'Email proposal', kind: 'doc', arc: 3 },
   { id: 'gm-customer', from: 'gm', to: 'customer', color: COLORS.approve, step: 4, label: 'Approve → tender', kind: 'doc', arc: 3, conditional: 'approve' },
   { id: 'gm-sales', from: 'gm', to: 'sales', color: COLORS.reject, step: 4, label: 'Tolak → revisi OPTIMA', kind: 'doc', arc: 7, conditional: 'reject' },
-  { id: 'customer-revenue', from: 'customer', to: 'src-internal', color: COLORS.revenue, step: 4, label: 'WIN → pembayaran Revenue ke Oracle NetSuite', kind: 'revenue', conditional: 'win' },
+  { id: 'customer-revenue', from: 'customer', to: 'src-internal', color: COLORS.revenue, step: 4, label: 'Gross Profit Riil tercatat di Oracle NetSuite', kind: 'revenue', conditional: 'win' },
 ];
 
 export const ZONES: { step: number; center: Vec3; size: [number, number]; label: string }[] = [

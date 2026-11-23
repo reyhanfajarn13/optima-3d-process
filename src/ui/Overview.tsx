@@ -12,11 +12,11 @@ export function OverviewWidget() {
         </span>
         <div>
           <small>Ringkasan proses</small>
-          <h2>Dari data pasar hingga Revenue</h2>
+          <h2>Dari data pasar hingga Gross Profit Riil</h2>
         </div>
       </header>
       <p className="panel__plain">
-        Peta ini menunjukkan bagaimana TEM menentukan harga penawaran High Speed Diesel (HSD) untuk customer tambang batu bara. Ikuti 4 langkah — dari sumber data dan OPTIMA, hingga keputusan GM, tender, dan customer setuju (WIN). Pembayaran Revenue kemudian kembali ke Data Transaksi TEM di Oracle NetSuite.
+        OPTIMA menghitung harga dan margin GP TEM, lalu menggabungkannya dengan hasil penilaian risiko customer menjadi Kelompok Result. Sales dapat mengajukan semua kategori dengan menuliskan alasan melanjutkan penawaran untuk ditinjau GM. Setelah disetujui dan WIN, HSD dikirim ke tambang. Saat customer membayar, Gross Profit Riil sama dengan GP proposal.
       </p>
       <button type="button" className="btn btn--wide" onClick={() => { setStep(1); setTour(true); }}>
         ▶ Putar tur otomatis
@@ -40,7 +40,8 @@ export function OverviewWidget() {
         <span><i className="legend__env" />Amplop = proposal / email</span>
         <span><i style={{ background: COLORS.approve }} />Hijau = disetujui → tender</span>
         <span><i style={{ background: COLORS.reject }} />Merah = ditolak → iterasi</span>
-        <span><i style={{ background: COLORS.revenue }} />Uang & jalur emas = pembayaran Revenue ke ERP</span>
+        <span><i style={{ background: COLORS.revenue }} />Uang & jalur emas = realisasi Gross Profit Riil</span>
+        <span><i style={{ background: '#e5b43b' }} />Truk tangki = pengiriman HSD setelah WIN</span>
       </div>
     </div>
   );

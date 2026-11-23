@@ -199,12 +199,13 @@ function Optima() {
 
 function SalesDesk() {
   const status = useApp((s) => s.proposalStatus);
+  const celebrationAt = useApp((s) => s.celebrationStartedAt);
   return (
     <Hotspot id="sales" size={[3.6, 2.4, 3]} offset={[0.3, 0, 0.3]}>
       <Desk width={2.2} depth={0.95} />
       <Laptop screen="sales" position={[-0.45, 0.83, 0]} rotation={0.15} />
       <Monitor screen="analytics" position={[0.5, 0.83, -0.2]} rotation={-0.25} size={0.9} />
-      <Person position={[0.15, 0, 0.9]} rotation={Math.PI} shirt={COLORS.sales} pose="type" tie="#2b2f6b" phase={0.9} />
+      <Person position={[0.15, 0, 0.9]} rotation={status === 'paid' ? 0 : Math.PI} shirt={COLORS.sales} pose={status === 'paid' ? 'celebrate' : 'type'} celebrationAt={celebrationAt} tie="#2b2f6b" phase={0.9} />
       <Chair position={[0.15, 0, 1.4]} rotation={Math.PI} color="#4a4f80" />
       <Printer position={[1.7, 0, 0.2]} printing={status === 'generated'} />
       <Sign text="SALES TEM" subtitle="Pengguna OPTIMA · harga & proposal" width={5.2} position={[0, 0.7, 2.3]} color={COLORS.sales} />
@@ -220,7 +221,9 @@ const STATUS_COLOR: Record<ProposalStatus, string> = {
   sent: '#fab219',
   approved: COLORS.approve,
   submitted: COLORS.approve,
-  won: COLORS.approve,
+  delivering: COLORS.approve,
+  delivered: COLORS.approve,
+  paying: COLORS.approve,
   paid: COLORS.approve,
   rejected: COLORS.reject,
 };
@@ -237,7 +240,7 @@ function DecisionSymbol({ status }: { status: ProposalStatus }) {
     <group ref={g} position={[0, 3.35, -0.2]}>
       <mesh geometry={G.circle} material={glowMat(color)} scale={1.0} />
       <mesh geometry={G.circle} material={glowMat(color)} scale={1.0} rotation={[0, Math.PI, 0]} />
-      {(['approved', 'submitted', 'won', 'paid'].includes(status)) && (
+      {(['approved', 'submitted', 'delivering', 'delivered', 'paying', 'paid'].includes(status)) && (
         <group position={[0, 0, 0.02]}>
           <Box color="#ffffff" glow position={[-0.12, -0.05, 0]} rotation={[0, 0, -0.8]} scale={[0.26, 0.08, 0.02]} />
           <Box color="#ffffff" glow position={[0.1, 0.05, 0]} rotation={[0, 0, 0.9]} scale={[0.5, 0.08, 0.02]} />
@@ -278,8 +281,9 @@ function GmOffice() {
 
 function CustomerSite() {
   const status = useApp((s) => s.proposalStatus);
-  const submitted = ['submitted', 'won', 'paid'].includes(status);
-  const won = status === 'won' || status === 'paid';
+  const submitted = ['submitted', 'delivering', 'delivered', 'paying', 'paid'].includes(status);
+  const won = ['delivering', 'delivered', 'paying', 'paid'].includes(status);
+  const celebrationAt = useApp((s) => s.celebrationStartedAt);
   return <Hotspot id="customer" size={[19,6,23]} offset={[0,0,0]}>
     <MiningLandscape />
     {won && <Sign text="WIN" subtitle="CUSTOMER SETUJU" color={COLORS.approve} position={[0, 5, 0]} width={5} />}
@@ -295,7 +299,9 @@ function CustomerSite() {
       <Box color={PALETTE.darker} position={[0,1.21,0]} scale={[0.7,0.02,0.1]} />
       <Sign text="TENDER" width={1} position={[0,0.7,0.46]} color={submitted ? COLORS.approve : COLORS.customer} />
     </group>
-    <Person position={[-4.2,0.2,7]} rotation={-0.4} shirt="#4e7a3a" hardhat pose="talk" phase={4.1} />
+    <group scale={status === 'paid' ? 1.5 : 1} position={status === 'paid' ? [5,0.2,12] : [-4.2,0.2,7]}>
+      <Person rotation={status === 'paid' ? 0 : -0.4} shirt="#4e7a3a" hardhat pose={status === 'paid' ? 'celebrate' : 'talk'} celebrationAt={celebrationAt} phase={4.1} />
+    </group>
   </Hotspot>;
 }
 

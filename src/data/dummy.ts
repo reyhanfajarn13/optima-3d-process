@@ -57,6 +57,8 @@ export const TEM_CONFIG = {
   baseCostRp: 12_850, // harga beli HSD + pajak terkait (Rp/L)
   financingRatePa: 0.09, // biaya dana 9% per tahun
   minMarginPct: 2.5, // margin minimum kebijakan
+  /** Ambang ilustratif Kelompok Result, memakai margin GP aktual (%). */
+  profitMarginThresholds: { medium: 3, high: 5 },
   targetUndercutPct: 0.4, // rekomendasi sedikit di bawah kompetitor termurah
   volumeDiscountThresholdKL: 2_000,
   volumeDiscountPct: 0.3,
@@ -82,12 +84,12 @@ const NC_SERIES = [112.4, 108.1, 103.6, 109.8, 116.9, 121.3, 114.7, 108.9, 112.6
 export const COAL_PRICES: CoalPricePoint[] = MONTHS.map((m, i) => ({ ...m, usdPerTon: NC_SERIES[i] }));
 
 export const CUSTOMERS: Customer[] = [
-  { id: 'c1', name: 'PT Bara Mahakam Lestari', site: 'Kutai Kartanegara', region: 'kaltim', coalCashCostUsd: 58, coalPriceFactor: 0.82, productionMtPerYear: 9.5, avgMonthlyVolumeKL: 2_600, logisticsCostRp: 310, paymentTermDays: 45 },
-  { id: 'c2', name: 'PT Sinar Batu Hitam', site: 'Berau', region: 'kaltim', coalCashCostUsd: 71, coalPriceFactor: 0.74, productionMtPerYear: 4.2, avgMonthlyVolumeKL: 1_350, logisticsCostRp: 420, paymentTermDays: 60 },
-  { id: 'c3', name: 'PT Karya Tambang Banua', site: 'Tanah Bumbu', region: 'kalsel', coalCashCostUsd: 64, coalPriceFactor: 0.7, productionMtPerYear: 6.8, avgMonthlyVolumeKL: 1_900, logisticsCostRp: 275, paymentTermDays: 30 },
-  { id: 'c4', name: 'PT Energi Barito Raya', site: 'Tabalong', region: 'kalsel', coalCashCostUsd: 79, coalPriceFactor: 0.68, productionMtPerYear: 2.9, avgMonthlyVolumeKL: 820, logisticsCostRp: 465, paymentTermDays: 60 },
-  { id: 'c5', name: 'PT Musi Coal Prima', site: 'Muara Enim', region: 'sumsel', coalCashCostUsd: 42, coalPriceFactor: 0.55, productionMtPerYear: 12.1, avgMonthlyVolumeKL: 3_150, logisticsCostRp: 340, paymentTermDays: 45 },
-  { id: 'c6', name: 'PT Lahat Bara Sentosa', site: 'Lahat', region: 'sumsel', coalCashCostUsd: 61, coalPriceFactor: 0.52, productionMtPerYear: 3.4, avgMonthlyVolumeKL: 1_050, logisticsCostRp: 390, paymentTermDays: 30 },
+  { id: 'c1', name: 'PT A', site: 'Kutai Kartanegara', region: 'kaltim', coalCashCostUsd: 58, coalPriceFactor: 0.82, productionMtPerYear: 9.5, avgMonthlyVolumeKL: 2_600, logisticsCostRp: 310, paymentTermDays: 45 },
+  { id: 'c2', name: 'PT B', site: 'Berau', region: 'kaltim', coalCashCostUsd: 71, coalPriceFactor: 0.74, productionMtPerYear: 4.2, avgMonthlyVolumeKL: 1_350, logisticsCostRp: 420, paymentTermDays: 60 },
+  { id: 'c3', name: 'PT C', site: 'Tanah Bumbu', region: 'kalsel', coalCashCostUsd: 64, coalPriceFactor: 0.7, productionMtPerYear: 6.8, avgMonthlyVolumeKL: 1_900, logisticsCostRp: 275, paymentTermDays: 30 },
+  { id: 'c4', name: 'PT D', site: 'Tabalong', region: 'kalsel', coalCashCostUsd: 79, coalPriceFactor: 0.68, productionMtPerYear: 2.9, avgMonthlyVolumeKL: 820, logisticsCostRp: 465, paymentTermDays: 60 },
+  { id: 'c5', name: 'PT E', site: 'Muara Enim', region: 'sumsel', coalCashCostUsd: 42, coalPriceFactor: 0.55, productionMtPerYear: 12.1, avgMonthlyVolumeKL: 3_150, logisticsCostRp: 340, paymentTermDays: 45 },
+  { id: 'c6', name: 'PT F', site: 'Lahat', region: 'sumsel', coalCashCostUsd: 61, coalPriceFactor: 0.52, productionMtPerYear: 3.4, avgMonthlyVolumeKL: 1_050, logisticsCostRp: 390, paymentTermDays: 30 },
 ];
 
 /** Data Competitor Benchmark (input Tim Marketing) */
